@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -57,10 +56,6 @@ func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 		return nil, err
 	}
 
-	if len(res.Result) > 0 {
-		log.Printf("%+v", res.Result[0].Message)
-	}
-
 	return res.Result, nil
 }
 
@@ -72,8 +67,6 @@ func (c *Client) SendMessage(chatID int, text string) error {
 	if err != nil {
 		return e.Wrap("can't send message", err)
 	}
-
-	log.Printf("send message '%s'", string(jsonStr))
 
 	_, err = c.doRequest(sendMessageMethod, jsonStr)
 	if err != nil {
@@ -98,8 +91,6 @@ func (c *Client) SendMessageWithKeyboard(chatID int, text string, buttons []stri
 		return e.Wrap("can't send message with keyboard", err)
 	}
 
-	log.Printf("send keyboard '%s'", string(jsonStr))
-
 	_, err = c.doRequest(sendMessageMethod, jsonStr)
 	if err != nil {
 		return e.Wrap("can't send message with keyboard", err)
@@ -116,8 +107,6 @@ func (c *Client) SendDocument(chatID int, fileID string) error {
 	if err != nil {
 		return e.Wrap("can't send document", err)
 	}
-
-	log.Printf("send document '%s'", string(jsonStr))
 
 	_, err = c.doRequest(sendDocumentMethod, jsonStr)
 	if err != nil {
