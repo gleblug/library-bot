@@ -1,13 +1,14 @@
 package telegram
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"path"
-	"strconv"
 
 	"github.com/gleblug/library-bot/lib/e"
 )
@@ -19,8 +20,10 @@ type Client struct {
 }
 
 const (
-	getUpdatesMethod  = "getUpdates"
-	sendMessageMethod = "sendMessage"
+	getUpdatesMethod     = "getUpdates"
+	sendMessageMethod    = "sendMessage"
+	sendDocumentMethod   = "sendDocument"
+	answerCallbackMethod = "answerCallbackQuery"
 )
 
 func New(host string, token string) *Client {
@@ -38,11 +41,12 @@ func newBasePath(token string) string {
 func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 	defer func() { err = e.WrapIfErr("can't get updates", err) }()
 
-	q := url.Values{}
-	q.Add("offset", strconv.Itoa(offset))
-	q.Add("limit", strconv.Itoa(limit))
+	jsonStr, err := json.Marshal(UpdateQuery{
+		Offset: offset,
+		Limit:  limit,
+	})
 
-	data, err := c.doRequest(getUpdatesMethod, q)
+	data, err := c.doRequest(getUpdatesMethod, jsonStr)
 	if err != nil {
 		return nil, err
 	}
@@ -53,15 +57,25 @@ func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 		return nil, err
 	}
 
+	if len(res.Result) > 0 {
+		log.Printf("%+v", res.Result[0].Message)
+	}
+
 	return res.Result, nil
 }
 
 func (c *Client) SendMessage(chatID int, text string) error {
-	q := url.Values{}
-	q.Add("chat_id", strconv.Itoa(chatID))
-	q.Add("text", text)
+	jsonStr, err := json.Marshal(OutcomingMessage{
+		ChatID: chatID,
+		Text:   text,
+	})
+	if err != nil {
+		return e.Wrap("can't send message", err)
+	}
 
-	_, err := c.doRequest(sendMessageMethod, q)
+	log.Printf("send message '%s'", string(jsonStr))
+
+	_, err = c.doRequest(sendMessageMethod, jsonStr)
 	if err != nil {
 		return e.Wrap("can't send message", err)
 	}
@@ -69,7 +83,67 @@ func (c *Client) SendMessage(chatID int, text string) error {
 	return nil
 }
 
-func (c *Client) doRequest(method string, query url.Values) (data []bytes, err error) {
+func (c *Client) SendMessageWithKeyboard(chatID int, text string, buttons []string) error {
+	keyboard := make([][]InlineKeyboardButton, 0, len(buttons))
+	for _, btn := range buttons {
+		keyboard = append(keyboard, []InlineKeyboardButton{{btn, btn}})
+	}
+
+	jsonStr, err := json.Marshal(OutcomingMessage{
+		ChatID: chatID,
+		Text:   text,
+		Markup: &InlineKeyboardMarkup{keyboard},
+	})
+	if err != nil {
+		return e.Wrap("can't send message with keyboard", err)
+	}
+
+	log.Printf("send keyboard '%s'", string(jsonStr))
+
+	_, err = c.doRequest(sendMessageMethod, jsonStr)
+	if err != nil {
+		return e.Wrap("can't send message with keyboard", err)
+	}
+
+	return nil
+}
+
+func (c *Client) SendDocument(chatID int, fileID string) error {
+	jsonStr, err := json.Marshal(OutcomingDocument{
+		ChatID: chatID,
+		FileID: fileID,
+	})
+	if err != nil {
+		return e.Wrap("can't send document", err)
+	}
+
+	log.Printf("send document '%s'", string(jsonStr))
+
+	_, err = c.doRequest(sendDocumentMethod, jsonStr)
+	if err != nil {
+		return e.Wrap("can't send document", err)
+	}
+
+	return nil
+}
+
+func (c *Client) AnswerCallback(callbackID string) error {
+	jsonStr, err := json.Marshal(AnswerCallbackQuery{
+		CallbackID: callbackID,
+	})
+	if err != nil {
+		return e.Wrap("can't answer callback", err)
+	}
+
+	_, err = c.doRequest(answerCallbackMethod, jsonStr)
+	if err != nil {
+		return e.Wrap("can't answer callback", err)
+	}
+
+	return nil
+}
+
+func (c *Client) doRequest(method string, jsonStr []byte) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can't do request", err) }()
 
 	u := url.URL{
@@ -78,12 +152,12 @@ func (c *Client) doRequest(method string, query url.Values) (data []bytes, err e
 		Path:   path.Join(c.basePath, method),
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, u.String(), bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err
 	}
 
-	req.URL.RawQuery = query.Encode()
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
