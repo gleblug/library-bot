@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  bot:
+    image: ${IMAGE_REF}
+    container_name: library_bot
+    restart: always
+    environment:
+      - TELEGRAM_API_KEY=${TELEGRAM_API_KEY}
+      - LIBRARY_BOT_STORAGE=/usr/src/storage
