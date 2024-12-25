@@ -3,6 +3,12 @@ package main
 import (
 	"log"
 	"os"
+
+	tgClient "github.com/gleblug/library-bot/clients/telegram"
+	"github.com/gleblug/library-bot/consumer/event_consumer"
+	"github.com/gleblug/library-bot/events/telegram"
+	"github.com/gleblug/library-bot/lib/e"
+	"github.com/gleblug/library-bot/storage/files"
 )
 
 const (
@@ -11,19 +17,24 @@ const (
 )
 
 func main() {
-	// token, storagePath := mustVariables()
+	token, storagePath := mustVariables()
 
-	// eventsProcessor := telegram.New(
-	// 	tgClient.New(host, token),
-	// 	files.New(storagePath),
-	// )
+	storage, err := files.New(storagePath)
+	if err != nil {
+		log.Fatal(e.Wrap("Can't create storage", err))
+	}
+
+	eventsProcessor := telegram.New(
+		tgClient.New(host, token),
+		storage,
+	)
 
 	log.Print("service started")
 
-	// consumer := event_consumer.New(eventsProcessor, eventsProcessor, batchSize)
-	// if err := consumer.Start(); err != nil {
-	// 	log.Fatal("service is stopped", err)
-	// }
+	consumer := event_consumer.New(eventsProcessor, eventsProcessor, batchSize)
+	if err := consumer.Start(); err != nil {
+		log.Fatal("service is stopped", err)
+	}
 }
 
 func mustVariables() (string, string) {
