@@ -13,14 +13,16 @@ type Processor struct {
 	tg      *telegram.Client
 	offset  int
 	storage storage.Storage
+	admins  []string // admin usernames
 }
 
 type Meta struct {
-	ChatID     int
-	Username   string
-	FileID     string
-	Filename   string
-	CallbackID string
+	ChatID       int
+	Username     string
+	FileID       string
+	Filename     string
+	CallbackID   string
+	CallbackData string
 }
 
 var (
@@ -28,10 +30,11 @@ var (
 	ErrUnknownMetaType  = errors.New("unknown meta type")
 )
 
-func New(client *telegram.Client, storage storage.Storage) *Processor {
+func New(client *telegram.Client, storage storage.Storage, admins []string) *Processor {
 	return &Processor{
 		tg:      client,
 		storage: storage,
+		admins:  admins,
 	}
 }
 
@@ -57,62 +60,21 @@ func (p *Processor) Fetch(limit int) ([]events.Event, error) {
 }
 
 func (p *Processor) Process(event events.Event) error {
+	meta, err := meta(event)
+	if err != nil {
+		return e.Wrap("can't process event", err)
+	}
+
 	switch event.Type {
 	case events.Message:
-		return p.processMessage(event)
+		return p.processMessage(event.Text, meta.ChatID, meta.Username)
 	case events.Document:
-		return p.processDocument(event)
+		return p.processDocument(event.Text, meta.ChatID, meta.Username, meta.FileID, meta.Filename)
 	case events.Callback:
-		return p.processCallback(event)
+		return p.processCallback(meta.ChatID, meta.CallbackID, meta.CallbackData)
 	default:
-		return e.Wrap("can't process message", ErrUnknownEventType)
+		return e.Wrap("can't process event", ErrUnknownEventType)
 	}
-}
-
-func (p *Processor) processMessage(event events.Event) error {
-	meta, err := meta(event)
-	if err != nil {
-		return e.Wrap("can't process message", err)
-	}
-
-	if err := p.doCmd(event.Text, meta.ChatID, meta.Username); err != nil {
-		return e.Wrap("can't process message", err)
-	}
-
-	return nil
-}
-
-func (p *Processor) processDocument(event events.Event) error {
-	meta, err := meta(event)
-	if err != nil {
-		return e.Wrap("can't process document", err)
-	}
-
-	if err := p.saveBook(event.Text, meta.ChatID, meta.Filename, meta.FileID); err != nil {
-		return e.Wrap("can't process document", err)
-	}
-
-	return nil
-}
-
-func (p *Processor) processCallback(event events.Event) (err error) {
-	meta, err := meta(event)
-	if err != nil {
-		return e.Wrap("can't process callback", err)
-	}
-
-	book, err := p.storage.Read(meta.Filename)
-	if err != nil {
-		return e.Wrap("can't process callback", err)
-	}
-
-	if err := p.sendBook(meta.ChatID, book.FileID); err != nil {
-		return e.Wrap("can't process callback", err)
-	}
-
-	p.tg.AnswerCallback(meta.CallbackID)
-
-	return nil
 }
 
 func meta(event events.Event) (Meta, error) {
@@ -147,9 +109,9 @@ func event(upd telegram.Update) events.Event {
 		}
 	case events.Callback:
 		res.Meta = Meta{
-			ChatID:     upd.Callback.Message.Chat.ID,
-			Filename:   upd.Callback.Data,
-			CallbackID: upd.Callback.ID,
+			ChatID:       upd.Callback.Message.Chat.ID,
+			CallbackID:   upd.Callback.ID,
+			CallbackData: upd.Callback.Data,
 		}
 	default:
 	}
