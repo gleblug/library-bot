@@ -8,3 +8,4 @@ services:
     environment:
       - TELEGRAM_API_KEY=${TELEGRAM_API_KEY}
       - LIBRARY_BOT_STORAGE=/usr/src/storage
+      - ADMIN_USERNAMES=${ADMIN_USERNAMES}
