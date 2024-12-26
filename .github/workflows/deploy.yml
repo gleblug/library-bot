@@ -44,7 +44,7 @@ jobs:
           IMAGE_REF: ${{ steps.meta.outputs.tags }}
           TELEGRAM_API_KEY: ${{ secrets.TELEGRAM_API_KEY }}
         run: |
-          docker --context remote compose -f docker-compose.yml up -d
+          docker --context remote compose -f compose.yml up -d
 
       - name: cleanup
         run: rm -rf ~/.ssh
