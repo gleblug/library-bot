@@ -45,7 +45,7 @@ func (p *Processor) processMessage(text string, chatID int, username string) err
 }
 
 func (p *Processor) searchBooks(chatID int, query string) (err error) {
-	const count = 1
+	const count = 3
 
 	defer func() { err = e.WrapIfErr("can't do cmd search", err) }()
 

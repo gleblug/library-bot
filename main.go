@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	tgClient "github.com/gleblug/library-bot/clients/telegram"
 	"github.com/gleblug/library-bot/consumer/event_consumer"
@@ -18,6 +19,7 @@ const (
 
 func main() {
 	token, storagePath := mustVariables()
+	admins := strings.Split(os.Getenv("ADMIN_USERNAMES"), ";")
 
 	storage, err := files.New(storagePath)
 	if err != nil {
@@ -27,6 +29,7 @@ func main() {
 	eventsProcessor := telegram.New(
 		tgClient.New(host, token),
 		storage,
+		admins,
 	)
 
 	log.Print("service started")
