@@ -43,6 +43,7 @@ jobs:
         env:
           IMAGE_REF: ${{ steps.meta.outputs.tags }}
           TELEGRAM_API_KEY: ${{ secrets.TELEGRAM_API_KEY }}
+          ADMIN_USERNAMES: ${{ secrets.ADMIN_USERNAMES }}
         run: |
           docker --context remote compose -f compose.yml up -d
 
